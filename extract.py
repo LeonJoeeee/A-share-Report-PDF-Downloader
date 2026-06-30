@@ -20,8 +20,14 @@ def _stdout_to_stderr():
     file descriptor 1, bypassing ``sys.stdout``. Redirecting at the fd level
     keeps a caller's stdout clean (e.g. cli.py's single ``--json`` line).
     """
-    sys.stdout.flush()
-    saved_fd = os.dup(1)
+    try:
+        sys.stdout.flush()
+        saved_fd = os.dup(1)
+    except (OSError, ValueError):
+        # No usable stdout fd (rare on some Windows / embedded setups) — skip the
+        # redirect; extraction still runs (stdout may get a little MuPDF noise).
+        yield
+        return
     try:
         os.dup2(2, 1)
         yield

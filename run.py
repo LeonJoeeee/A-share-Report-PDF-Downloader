@@ -38,7 +38,10 @@ def _deps_present() -> bool:
 def _venv_dir() -> Path:
     base = os.environ.get('CLAUDE_PLUGIN_DATA')
     if not base:
-        cache = os.environ.get('XDG_CACHE_HOME') or str(Path.home() / '.cache')
+        if os.name == 'nt':
+            cache = os.environ.get('LOCALAPPDATA') or str(Path.home() / 'AppData' / 'Local')
+        else:
+            cache = os.environ.get('XDG_CACHE_HOME') or str(Path.home() / '.cache')
         base = str(Path(cache) / 'a-share-report-downloader')
     return Path(base) / 'venv'
 
