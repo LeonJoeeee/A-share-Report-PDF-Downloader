@@ -1,0 +1,11 @@
+{
+  "name": "a-share-report-downloader",
+  "version": "0.1.0",
+  "description": "Download A-share listed companies' official financial report PDFs from cninfo (巨潮资讯网) and extract them to Markdown for LLM/agent analysis.",
+  "author": {
+    "name": "Kiamutz",
+    "url": "https://github.com/Kiamutz"
+  },
+  "homepage": "https://github.com/Kiamutz/A-share-Report-PDF-Downloader",
+  "keywords": ["a-share", "finance", "cninfo", "annual-report", "pdf", "china-stock"]
+}

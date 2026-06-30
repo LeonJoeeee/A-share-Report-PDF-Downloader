@@ -1,10 +1,28 @@
+"""cninfo (巨潮资讯网) HTTP client.
+
+Merges the original fetcher.py + downloader.py into one module with a single
+shared HEADERS dict. The cninfo request flow is hard-won and preserved exactly:
+
+  1. get_company_info  -> (company_name, org_id) via fulltextSearch/full
+  2. search_announcement -> the best-matching announcement dict (or None)
+  3. build_pdf_url      -> static.cninfo.com.cn/{adjunctUrl}
+  4. download_pdf       -> streamed download to a safe filename
+
+KEY: org_id MUST come from the API. cninfo's internal orgId is an opaque numeric
+value (e.g. 9900024582), NOT derivable from the stock code by any rule.
+"""
+
 from __future__ import annotations
 
+import os
+import re
 import requests
+from pathlib import Path
 
 BASE_URL = 'http://www.cninfo.com.cn'
 STATIC_URL = 'http://static.cninfo.com.cn'
 
+# Single shared headers dict (the old code duplicated this across modules).
 HEADERS = {
     'User-Agent': (
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
@@ -80,3 +98,48 @@ def search_announcement(params: dict) -> dict | None:
 
 def build_pdf_url(adjunct_url: str) -> str:
     return f'{STATIC_URL}/{adjunct_url}'
+
+
+def _safe_filename(name: str) -> str:
+    return re.sub(r'[\\/:*?"<>|]', '_', name)
+
+
+# The PDF stream is a static binary file; send a minimal header set (no JSON
+# Accept) — matching the original downloader's intent.
+DOWNLOAD_HEADERS = {
+    'User-Agent': HEADERS['User-Agent'],
+    'Referer': HEADERS['Referer'],
+}
+
+
+def download_pdf(url: str, save_dir: str, filename: str) -> str:
+    """下载 PDF 到 save_dir/filename，返回完整保存路径。
+
+    校验响应确实是 PDF（首字节 ``%PDF``）；若巨潮返回的是 HTML 拦截页等非 PDF 内容，
+    抛出 RequestException，避免把垃圾内容当成 PDF 存下来再让下游提取莫名其妙地失败。
+    """
+    Path(save_dir).mkdir(parents=True, exist_ok=True)
+    safe_name = _safe_filename(filename)
+    if not safe_name.lower().endswith('.pdf'):
+        safe_name += '.pdf'
+    save_path = os.path.join(save_dir, safe_name)
+
+    resp = requests.get(url, headers=DOWNLOAD_HEADERS, stream=True, timeout=60)
+    resp.raise_for_status()
+
+    chunks = resp.iter_content(chunk_size=8192)
+    first = b''
+    for first in chunks:
+        if first:
+            break
+    if not first.startswith(b'%PDF'):
+        raise requests.exceptions.RequestException(
+            f'下载内容不是 PDF（{url}），可能是错误页或链接失效'
+        )
+
+    with open(save_path, 'wb') as f:
+        f.write(first)
+        for chunk in chunks:
+            f.write(chunk)
+
+    return save_path
