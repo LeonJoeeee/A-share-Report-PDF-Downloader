@@ -1,3 +1,14 @@
+"""Input parsing for A-share report lookup.
+
+Ported verbatim (in semantics) from the original utils.py:
+- 6-digit stock code validation
+- quarter -> cninfo category / report-name / title-keyword / search-range mapping
+- exchange (column / org_prefix / exchange-name) detection by code prefix
+
+The returned dict keys are kept identical to the original parse_input so the
+rest of the pipeline (cninfo.py) consumes them unchanged.
+"""
+
 import re
 
 QUARTER_CONFIG = {

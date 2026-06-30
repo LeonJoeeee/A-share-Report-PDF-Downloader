@@ -1,0 +1,13 @@
+{
+  "name": "a-share",
+  "owner": {
+    "name": "Kiamutz"
+  },
+  "plugins": [
+    {
+      "name": "a-share-report-downloader",
+      "source": "./",
+      "description": "Download A-share companies' official financial report PDFs from cninfo (巨潮资讯网) and extract them to Markdown for LLM/agent analysis."
+    }
+  ]
+}

@@ -1,52 +1,108 @@
-# A股财报下载器
+# A-share Report Downloader · A股财报下载器
 
-从巨潮资讯网（cninfo.com.cn）一键下载 A 股上市公司原版财报 PDF。
+Download A-share (mainland China) listed companies' **official** financial
+report PDFs from [巨潮资讯网 cninfo.com.cn](http://www.cninfo.com.cn) by stock
+code + report period, and extract them to Markdown for LLM/agent analysis.
 
-![界面截图](screenshot.png)
+This project is **both** a Claude Code plugin (exposing an `a-share-report`
+skill) and a standalone command-line tool.
 
-## 功能
+## What it is
 
-- 输入股票代码 + 报告期（如 `300088` + `2024Q4`），自动查找并下载对应财报 PDF
-- 支持四个报告期：Q1 一季报、Q2 半年报、Q3 三季报、Q4 年报
-- 图形界面，可视化选择保存路径
+Give it a 6-digit stock code (e.g. `300088`) and a report period (e.g.
+`2024Q4`). It:
 
-## 安装
+1. resolves the company name + cninfo internal `orgId` via the official search API,
+2. finds the matching disclosure announcement (annual / interim / quarterly),
+3. downloads the original report PDF, and
+4. (by default) converts it to a `.md` text file so an agent can read it.
 
-需要 Python 3.8 或以上版本。
+Data source: [巨潮资讯网 cninfo.com.cn](http://www.cninfo.com.cn) — the
+SSE / SZSE / BSE designated information-disclosure platform.
+
+## Install as a Claude Code plugin
+
+In Claude Code, add this repo as a plugin marketplace and install the plugin:
+
+```text
+/plugin marketplace add Kiamutz/A-share-Report-PDF-Downloader
+/plugin install a-share-report-downloader@a-share
+```
+
+That's it — no manual dependency setup. The skill calls a self-bootstrapping
+launcher (`run.py`) that, on first use, creates an **isolated virtualenv** and
+installs the Python dependencies (`requests` + `pymupdf4llm`) automatically
+(~30s, once). Nothing is installed into your global Python.
+
+Once installed, the **`a-share-report`** skill triggers when you ask for an
+A-share company's official report, e.g. "下载 300088 的 2024 年报" or "拉一下贵州茅台
+最新季报来分析".
+
+### Where files go
+
+- **Downloaded report (PDF + `.md`)** → the `--out` directory, which defaults to
+  your current working directory (your project). They are **never** saved inside
+  the plugin directory. The tool reports absolute paths.
+- **Auto-installed dependencies (venv)** → `$CLAUDE_PLUGIN_DATA/venv` (Claude
+  Code's persistent plugin-data dir), or `~/.cache/a-share-report-downloader/venv`
+  when run standalone — also outside the plugin code directory.
+
+## Standalone CLI usage
+
+No install step needed — `run.py` bootstraps its own deps on first run:
+
+```bash
+# 2024 annual report (年报) of 300088, saved into ./reports
+python run.py 300088 2024Q4 --out ./reports
+
+# 2024 half-year report (半年报), machine-readable JSON to stdout
+python run.py 300088 2024Q2 --json
+```
+
+If you'd rather manage the environment yourself, install the deps and call
+`cli.py` directly:
 
 ```bash
 pip install -r requirements.txt
+python cli.py 300088 2024Q4 --out ./reports --json
 ```
 
-## 启动
+Human progress messages go to **stderr**; with `--json` a single JSON object is
+printed to **stdout** with keys: `stock_code`, `company`, `period`,
+`report_name`, `exchange`, `title`, `pdf_path`, `text_path`, `source_url`
+(paths are absolute).
 
-**方式一：** 双击 `启动.bat`（Windows）
+### Period format
 
-**方式二：** 命令行
+`YYYYQn`, where the quarter maps to a report type:
 
-```bash
-streamlit run app.py
+| Period | Report |
+|--------|--------|
+| `Q1` | 一季报 (first quarter) |
+| `Q2` | 半年报 (interim / half-year) |
+| `Q3` | 三季报 (third quarter) |
+| `Q4` | 年报 (annual) |
+
+### Exit codes
+
+`0` success · `1` bad input (invalid code/period, or unknown code) · `2` report
+not found (not disclosed yet / wrong period) · `3` network error.
+
+## Limitation
+
+Digital-text PDFs only. Scanned reports without a text layer are **not** OCR'd —
+the PDF is still saved, but no Markdown is produced.
+
+## File structure
+
 ```
-
-启动后浏览器自动打开，默认地址 `http://localhost:8501`。
-
-## 使用方法
-
-1. 输入 6 位股票代码，如 `300088`
-2. 输入报告期，如 `2024Q4`（年份 + Q1/Q2/Q3/Q4）
-3. 选择保存路径
-4. 点击「下载财报」
-
-## 数据来源
-
-[巨潮资讯网](http://www.cninfo.com.cn) — 深交所、上交所官方指定信息披露平台。
-
-## 文件结构
-
-```
-├── app.py          # Streamlit 主界面
-├── fetcher.py      # 巨潮 API 查询
-├── downloader.py   # PDF 下载
-├── utils.py        # 参数解析
-└── requirements.txt
+├── run.py                          # self-bootstrapping launcher (the skill calls this)
+├── cli.py                          # headless entry point (download + extract)
+├── params.py                       # input parsing: code validation + quarter mapping
+├── cninfo.py                       # cninfo HTTP client (search + download)
+├── extract.py                      # PDF -> Markdown via pymupdf4llm
+├── requirements.txt                # requests + pymupdf4llm
+├── .claude-plugin/plugin.json      # plugin manifest
+├── .claude-plugin/marketplace.json # marketplace catalog (for /plugin marketplace add)
+└── skills/a-share-report/SKILL.md
 ```
