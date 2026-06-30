@@ -9,29 +9,30 @@ Downloads an A-share company's official financial report PDF from cninfo
 (巨潮资讯网, the SSE/SZSE/BSE-designated disclosure platform) and extracts it to
 Markdown so it can be read and analyzed.
 
-## Prerequisite
-
-Install dependencies once (requests + pymupdf4llm):
-
-```bash
-pip install -r "${CLAUDE_PLUGIN_ROOT}/requirements.txt"
-```
-
 ## Invocation
 
 ```bash
-python "${CLAUDE_PLUGIN_ROOT}/cli.py" <code> <YYYYQn> --out <dir> [--json]
+python "${CLAUDE_PLUGIN_ROOT}/run.py" <code> <YYYYQn> --out <dir> [--json]
 ```
+
+`run.py` is a self-bootstrapping launcher: on first use it creates an isolated
+virtualenv and installs the Python dependencies (requests + pymupdf4llm)
+automatically — about 30s, once — then runs the downloader. You do NOT need to
+pip-install anything by hand, and nothing is installed into the global Python.
+(The venv lives in the plugin's persistent data dir, not in the plugin code.)
 
 - `<code>`: 6-digit stock code, e.g. `300088`.
 - `<YYYYQn>`: report period, e.g. `2024Q4`.
-- `--out <dir>`: where to save the `.pdf` and `.md` (default: current dir).
+- `--out <dir>`: where to save the `.pdf` and `.md`. Pass an explicit directory
+  in the user's workspace (the current project, or a `reports/` folder). Defaults
+  to the current working directory. Files are **never** written into the plugin
+  directory.
 - `--json`: print one machine-readable JSON object to stdout (recommended — the
   paths are easy to parse). Human progress goes to stderr.
 - `--no-text`: download the PDF only, skip Markdown extraction.
 
 Use the literal `${CLAUDE_PLUGIN_ROOT}` env var so the path resolves to the
-plugin root regardless of where it is installed.
+plugin root wherever it is installed.
 
 ## Period mapping
 
@@ -46,15 +47,16 @@ Example: the 2024 annual report of stock 300088 is `2024Q4`.
 
 ## After running
 
-Read the produced Markdown file (the `text_path` field in the JSON output) to
-analyze the report — financials, MD&A, risks, etc. Prefer `--json` so you can
+The JSON output's `pdf_path` and `text_path` are absolute paths. Read the
+Markdown file (`text_path`) to analyze the report — financials, MD&A, risks,
+etc. Tell the user where the files were saved. Prefer `--json` so you can
 reliably extract `pdf_path` and `text_path`.
 
 Example JSON stdout:
 
 ```json
 {"stock_code":"300088","company":"...","period":"2024Q4","report_name":"年报",
- "exchange":"深交所","title":"...","pdf_path":"...pdf","text_path":"...md",
+ "exchange":"深交所","title":"...","pdf_path":"/abs/...pdf","text_path":"/abs/...md",
  "source_url":"http://static.cninfo.com.cn/..."}
 ```
 
@@ -70,7 +72,7 @@ read each resulting `.md`.
 | 0 | success (PDF downloaded; `text_path` may be null if extraction was skipped/failed) |
 | 1 | bad input — invalid stock code or period format, or unknown code |
 | 2 | report not found — not disclosed yet, or wrong period |
-| 3 | network/HTTP error |
+| 3 | network/HTTP error (or automatic dependency setup failed) |
 
 If extraction fails but the PDF downloaded, exit code is still 0 and `text_path`
 is null — downloading is the primary job.

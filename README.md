@@ -5,8 +5,7 @@ report PDFs from [巨潮资讯网 cninfo.com.cn](http://www.cninfo.com.cn) by st
 code + report period, and extract them to Markdown for LLM/agent analysis.
 
 This project is **both** a Claude Code plugin (exposing an `a-share-report`
-skill) and a standalone command-line tool — no install step needed to run the
-CLI.
+skill) and a standalone command-line tool.
 
 ## What it is
 
@@ -23,35 +22,55 @@ SSE / SZSE / BSE designated information-disclosure platform.
 
 ## Install as a Claude Code plugin
 
-Add this repository via the `/plugin` command in Claude Code. Once installed it
-exposes the **`a-share-report`** skill, which Claude triggers when you ask for an
-A-share company's official report (年报 / 半年报 / 一季报 / 三季报).
+In Claude Code, add this repo as a plugin marketplace and install the plugin:
 
-Install the Python dependencies once:
-
-```bash
-pip install -r requirements.txt
+```text
+/plugin marketplace add Kiamutz/A-share-Report-PDF-Downloader
+/plugin install a-share-report-downloader@a-share
 ```
+
+That's it — no manual dependency setup. The skill calls a self-bootstrapping
+launcher (`run.py`) that, on first use, creates an **isolated virtualenv** and
+installs the Python dependencies (`requests` + `pymupdf4llm`) automatically
+(~30s, once). Nothing is installed into your global Python.
+
+Once installed, the **`a-share-report`** skill triggers when you ask for an
+A-share company's official report, e.g. "下载 300088 的 2024 年报" or "拉一下贵州茅台
+最新季报来分析".
+
+### Where files go
+
+- **Downloaded report (PDF + `.md`)** → the `--out` directory, which defaults to
+  your current working directory (your project). They are **never** saved inside
+  the plugin directory. The tool reports absolute paths.
+- **Auto-installed dependencies (venv)** → `$CLAUDE_PLUGIN_DATA/venv` (Claude
+  Code's persistent plugin-data dir), or `~/.cache/a-share-report-downloader/venv`
+  when run standalone — also outside the plugin code directory.
 
 ## Standalone CLI usage
 
-```bash
-python cli.py <code> <YYYYQn> [--out DIR] [--json] [--no-text] [--quiet]
-```
-
-Examples:
+No install step needed — `run.py` bootstraps its own deps on first run:
 
 ```bash
 # 2024 annual report (年报) of 300088, saved into ./reports
-python cli.py 300088 2024Q4 --out ./reports
+python run.py 300088 2024Q4 --out ./reports
 
 # 2024 half-year report (半年报), machine-readable JSON to stdout
-python cli.py 300088 2024Q2 --json
+python run.py 300088 2024Q2 --json
+```
+
+If you'd rather manage the environment yourself, install the deps and call
+`cli.py` directly:
+
+```bash
+pip install -r requirements.txt
+python cli.py 300088 2024Q4 --out ./reports --json
 ```
 
 Human progress messages go to **stderr**; with `--json` a single JSON object is
 printed to **stdout** with keys: `stock_code`, `company`, `period`,
-`report_name`, `exchange`, `title`, `pdf_path`, `text_path`, `source_url`.
+`report_name`, `exchange`, `title`, `pdf_path`, `text_path`, `source_url`
+(paths are absolute).
 
 ### Period format
 
@@ -63,12 +82,6 @@ printed to **stdout** with keys: `stock_code`, `company`, `period`,
 | `Q2` | 半年报 (interim / half-year) |
 | `Q3` | 三季报 (third quarter) |
 | `Q4` | 年报 (annual) |
-
-### Output
-
-For each report you get a `<code>_<company>_<period>_<report>.pdf` and, unless
-`--no-text` is passed, a sibling `.md` with the same name. Read the `.md` to
-analyze the report.
 
 ### Exit codes
 
@@ -83,11 +96,13 @@ the PDF is still saved, but no Markdown is produced.
 ## File structure
 
 ```
-├── cli.py                       # headless entry point (used by the skill)
-├── params.py                    # input parsing: code validation + quarter mapping
-├── cninfo.py                    # cninfo HTTP client (search + download)
-├── extract.py                   # PDF -> Markdown via pymupdf4llm
-├── requirements.txt             # requests + pymupdf4llm
-├── .claude-plugin/plugin.json   # plugin manifest
+├── run.py                          # self-bootstrapping launcher (the skill calls this)
+├── cli.py                          # headless entry point (download + extract)
+├── params.py                       # input parsing: code validation + quarter mapping
+├── cninfo.py                       # cninfo HTTP client (search + download)
+├── extract.py                      # PDF -> Markdown via pymupdf4llm
+├── requirements.txt                # requests + pymupdf4llm
+├── .claude-plugin/plugin.json      # plugin manifest
+├── .claude-plugin/marketplace.json # marketplace catalog (for /plugin marketplace add)
 └── skills/a-share-report/SKILL.md
 ```

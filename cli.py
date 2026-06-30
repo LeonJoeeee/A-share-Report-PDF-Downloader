@@ -20,6 +20,7 @@ Exit codes:
 
 import argparse
 import json
+import os
 import sys
 
 from params import parse_input
@@ -129,6 +130,7 @@ def main(argv=None) -> int:
         _eprint(f'网络错误：{e}', quiet)
         return 3
 
+    pdf_path = os.path.abspath(pdf_path)
     _eprint(f'已保存 PDF：{pdf_path}', quiet)
 
     # 5. Optionally extract to Markdown. Extraction failure does NOT fail the run.

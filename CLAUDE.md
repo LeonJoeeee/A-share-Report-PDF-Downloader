@@ -6,17 +6,24 @@ LLM / agent 分析。本项目是一个 Claude Code 插件，同时也是一个�
 ## 文件结构
 
 ```
-├── cli.py                       ← 无界面入口（skill 调用的就是它）。argparse: code period --out --json --no-text --quiet
-├── params.py                    ← 参数解析（股票代码校验、季度→报告类型映射），含 QUARTER_CONFIG
-├── cninfo.py                    ← 巨潮 API 客户端（查 orgId、搜索公告、拼 PDF 链接、下载）
-├── extract.py                   ← PDF → Markdown（pymupdf4llm），仅数字文本 PDF
-├── requirements.txt             ← requests + pymupdf4llm
-├── .claude-plugin/plugin.json   ← 插件清单
+├── run.py                           ← skill 调用的自举启动器：首次用自动建 venv 装依赖，再调 cli.py
+├── cli.py                           ← 无界面入口。argparse: code period --out --json --no-text --quiet
+├── params.py                        ← 参数解析（股票代码校验、季度→报告类型映射），含 QUARTER_CONFIG
+├── cninfo.py                        ← 巨潮 API 客户端（查 orgId、搜索公告、拼 PDF 链接、下载）
+├── extract.py                       ← PDF → Markdown（pymupdf4llm），仅数字文本 PDF
+├── requirements.txt                 ← requests + pymupdf4llm
+├── .claude-plugin/plugin.json       ← 插件清单
+├── .claude-plugin/marketplace.json  ← marketplace 目录（供 /plugin marketplace add 安装）
 └── skills/a-share-report/SKILL.md
 ```
 
 调用流程（cli.py）：`parse_input` → `get_company_info`（填入真实 org_id）→
 `search_announcement` → `build_pdf_url` → `download_pdf` → （默认）`pdf_to_markdown`。
+
+依赖与产物的位置：
+- 依赖装在隔离 venv（`$CLAUDE_PLUGIN_DATA/venv`，或独立运行时 `~/.cache/a-share-report-downloader/venv`），
+  由 `run.py` 首次运行时自动创建；不进插件代码目录、不污染全局 Python。
+- 下载的 PDF / Markdown 存到 `--out` 指定目录（默认当前工作目录），cli.py 输出**绝对路径**；绝不写进插件目录。
 
 ## 关键设计决策
 
