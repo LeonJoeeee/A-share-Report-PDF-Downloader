@@ -20,6 +20,16 @@ Give it a 6-digit stock code (e.g. `300088`) and a report period (e.g.
 Data source: [巨潮资讯网 cninfo.com.cn](http://www.cninfo.com.cn) — the
 SSE / SZSE / BSE designated information-disclosure platform.
 
+## Requirements
+
+- **Python 3.8+** on the PATH.
+- Runs on **Linux, macOS, and Windows** — pure Python plus `requests` and
+  `pymupdf4llm` (PyMuPDF publishes prebuilt wheels for all three). As a plugin
+  these are installed automatically (below), and the launcher handles per-OS
+  virtualenv paths.
+- Optional: if **Tesseract OCR** is installed on the system, image-only pages
+  are additionally OCR'd. Without it, digital-text pages are still extracted.
+
 ## Install as a Claude Code plugin
 
 In Claude Code, add this repo as a plugin marketplace and install the plugin:
@@ -44,8 +54,9 @@ A-share company's official report, e.g. "下载 300088 的 2024 年报" or "拉�
   your current working directory (your project). They are **never** saved inside
   the plugin directory. The tool reports absolute paths.
 - **Auto-installed dependencies (venv)** → `$CLAUDE_PLUGIN_DATA/venv` (Claude
-  Code's persistent plugin-data dir), or `~/.cache/a-share-report-downloader/venv`
-  when run standalone — also outside the plugin code directory.
+  Code's persistent plugin-data dir), or a per-user cache dir when run standalone
+  (`~/.cache/...` on Linux/macOS, `%LOCALAPPDATA%\...` on Windows) — also outside
+  the plugin code directory.
 
 ## Standalone CLI usage
 
@@ -90,8 +101,9 @@ not found (not disclosed yet / wrong period) · `3` network error.
 
 ## Limitation
 
-Digital-text PDFs only. Scanned reports without a text layer are **not** OCR'd —
-the PDF is still saved, but no Markdown is produced.
+Digital-text PDFs are always extracted. Scanned reports without a text layer are
+OCR'd only if **Tesseract** is installed on the system; otherwise the PDF is
+still saved but no Markdown is produced.
 
 ## File structure
 
